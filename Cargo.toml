@@ -15,6 +15,7 @@ embassy-futures = "0.1.2"
 embassy-nrf = { version = "0.7.0", features = ["nrf52833", "gpiote", "time-driver-rtc1"] }
 embassy-sync = "0.7.2"
 embassy-time = { version = "0.5.0", features = ["tick-hz-32_768"] }
+lsm303agr = "1.1.0"
 panic-halt = "1.0.0"
 panic-probe = { version = "1.0.0", features = ["print-defmt"], optional = true }
 static_cell = "2.1.1"
