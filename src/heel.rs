@@ -9,13 +9,12 @@ use embassy_nrf::{
 };
 use embassy_time::Delay;
 use embassy_time::Timer;
+use libm::Libm;
 use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
-const ACCEL_ADDY: u8 = 0x19;
-const MAG_ADDY: u8 = 0x1E;
-//Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both interrupts associated with using TWI (I2C)
+//Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
 bind_interrupts!(
     struct Irqs {
@@ -32,12 +31,10 @@ pub async fn init_heel(
     info!("Initializing accelorometer twi...");
     let config = twim::Config::default();
 
-    //I think buffer size is just null because it has to do with size of write which we'll only be reading
+    //So turns out we NEED the ram buffer to be able to store the accel status and know whether it has
+    //data to be read lol
     static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
-    let mut twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
-
-    let mut rx_buf = [0u8; 16];
-    info!("Reading...");
+    let twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
 
     //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
     let mut sensor = Lsm303agr::new_with_i2c(twi);
@@ -51,15 +48,21 @@ pub async fn init_heel(
         .unwrap();
 
     loop {
-        Timer::after_millis(300).await;
+        Timer::after_millis(500).await;
         if sensor.accel_status().unwrap().xyz_new_data() {
             let data = sensor.acceleration().unwrap();
-            info!(
-                "Accel Values: x {} y {} z {}",
+
+            //represents x tilt
+            let pitch = Libm::atan2(
                 data.x_raw(),
-                data.y_raw(),
-                data.z_raw(),
+                Libm::sqrt(data.y_raw().pow(2) + data.z_raw().pow(2)),
             );
+            //represents y tilt
+            let roll = Libm::atan2(
+                data.y_raw(),
+                Libm::sqrt(data.x_raw() * *2 + data.z_raw() * *2),
+            );
+            info!("Accel Values: Roll(y): {} Pitch(x) {}", roll, pitch);
         }
     }
 }
