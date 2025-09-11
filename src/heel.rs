@@ -9,7 +9,6 @@ use embassy_nrf::{
 };
 use embassy_time::Delay;
 use embassy_time::Timer;
-use libm::Libm;
 use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
@@ -49,20 +48,22 @@ pub async fn init_heel(
 
     loop {
         Timer::after_millis(500).await;
+        let mut roll: f32 = 0.0;
+        let mut pitch: f32 = 0.0;
         if sensor.accel_status().unwrap().xyz_new_data() {
             let data = sensor.acceleration().unwrap();
 
             //represents x tilt
-            let pitch = Libm::atan2(
-                data.x_raw(),
-                Libm::sqrt(data.y_raw().pow(2) + data.z_raw().pow(2)),
+            pitch = libm::atan2f(
+                data.x_raw().into(),
+                (data.y_raw().pow(2) + data.z_raw().pow(2)).into(),
             );
             //represents y tilt
-            let roll = Libm::atan2(
-                data.y_raw(),
-                Libm::sqrt(data.x_raw() * *2 + data.z_raw() * *2),
+            roll = libm::atan2f(
+                data.y_raw().into(),
+                (data.x_raw().pow(2) + data.z_raw().pow(2)).into(),
             );
-            info!("Accel Values: Roll(y): {} Pitch(x) {}", roll, pitch);
         }
+        info!("Roll: {}\nPitch: {}", roll, pitch)
     }
 }
