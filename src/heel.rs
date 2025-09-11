@@ -33,7 +33,7 @@ pub async fn init_heel(
     let config = twim::Config::default();
 
     //I think buffer size is just null because it has to do with size of write which we'll only be reading
-    static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 0]> = ConstStaticCell::new([0; 0]);
+    static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
     let mut twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
 
     let mut rx_buf = [0u8; 16];
@@ -49,13 +49,17 @@ pub async fn init_heel(
             AccelOutputDataRate::Hz10,
         )
         .unwrap();
+
     loop {
-        //This loop is obsolete once driver is fully implemented
-        let res = twi.read(ACCEL_ADDY, &mut rx_buf).await;
-        match res {
-            Ok(T) => info!("Read: {=[u8]:x}", rx_buf),
-            Err(E) => info!("Error reading accelorometer: {:?}", E),
+        Timer::after_millis(300).await;
+        if sensor.accel_status().unwrap().xyz_new_data() {
+            let data = sensor.acceleration().unwrap();
+            info!(
+                "Accel Values: x {} y {} z {}",
+                data.x_raw(),
+                data.y_raw(),
+                data.z_raw(),
+            );
         }
-        Timer::after_millis(400).await;
     }
 }
