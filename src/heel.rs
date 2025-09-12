@@ -1,4 +1,6 @@
-use core::any::Any;
+#![no_std]
+
+use core::f32::consts::PI;
 
 use defmt::dbg;
 use defmt::info;
@@ -46,24 +48,25 @@ pub async fn init_heel(
         )
         .unwrap();
 
+    info!("Starting to pull tilt data!");
     loop {
-        Timer::after_millis(500).await;
+        Timer::after_millis(1000).await;
         let mut roll: f32 = 0.0;
         let mut pitch: f32 = 0.0;
-        if sensor.accel_status().unwrap().xyz_new_data() {
+        if sensor.accel_status().is_ok_and(|s| s.xyz_new_data()) {
             let data = sensor.acceleration().unwrap();
+            let x = data.x_raw() as f32;
+            let y = data.y_raw() as f32;
+            let z = data.z_raw() as f32;
 
             //represents x tilt
-            pitch = libm::atan2f(
-                data.x_raw().into(),
-                (data.y_raw().pow(2) + data.z_raw().pow(2)).into(),
-            );
+            pitch = 180f32
+                * libm::atan2f(x, libm::sqrtf(libm::powf(y, 2f32) + libm::powf(z, 2f32)))
+                / PI;
             //represents y tilt
-            roll = libm::atan2f(
-                data.y_raw().into(),
-                (data.x_raw().pow(2) + data.z_raw().pow(2)).into(),
-            );
+            roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
+                / PI;
+            info!("Roll: {} Pitch: {}", roll, pitch)
         }
-        info!("Roll: {}\nPitch: {}", roll, pitch)
     }
 }
