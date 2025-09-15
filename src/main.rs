@@ -3,6 +3,7 @@
 
 mod fmt;
 mod heel;
+mod micro_sd;
 
 use defmt::dbg;
 #[cfg(not(feature = "defmt"))]
@@ -23,7 +24,6 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(button(p.P0_14.into(), ButtonSide::A));
     let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
     let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
-    dbg!(res);
 
     loop {
         info!("Hello, World!");

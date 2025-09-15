@@ -9,7 +9,7 @@ use embassy_nrf::{
     peripherals::{P0_08, P0_16, TWISPI0},
     twim, Peri,
 };
-use embassy_time::Delay;
+
 use embassy_time::Timer;
 use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
@@ -29,11 +29,10 @@ pub async fn init_heel(
     scl_p: Peri<'static, P0_08>,
     sda_p: Peri<'static, P0_16>,
 ) {
+    //Initializing I2C, will need to do this in main or elsewhere if we want to share
+    //the i2c bus
     info!("Initializing accelorometer twi...");
     let config = twim::Config::default();
-
-    //So turns out we NEED the ram buffer to be able to store the accel status and know whether it has
-    //data to be read lol
     static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
     let twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
 
@@ -55,9 +54,9 @@ pub async fn init_heel(
         let mut pitch: f32 = 0.0;
         if sensor.accel_status().is_ok_and(|s| s.xyz_new_data()) {
             let data = sensor.acceleration().unwrap();
-            let x = data.x_raw() as f32;
-            let y = data.y_raw() as f32;
-            let z = data.z_raw() as f32;
+            let x = data.x_mg() as f32;
+            let y = data.y_mg() as f32;
+            let z = data.z_mg() as f32;
 
             //represents x tilt
             pitch = 180f32
