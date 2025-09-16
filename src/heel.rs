@@ -10,6 +10,7 @@ use embassy_nrf::{
     twim, Peri,
 };
 
+use embassy_time::Delay;
 use embassy_time::Timer;
 use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
