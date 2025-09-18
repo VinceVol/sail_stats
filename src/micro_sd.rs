@@ -5,7 +5,7 @@
 use defmt::info;
 use embassy_nrf::{
     bind_interrupts,
-    peripherals::{P0_01, P0_13, P0_17, SPI2},
+    peripherals::{P0_01, P0_13, P0_17, RTC0, SPI2},
     spim, Peri,
 };
 use embassy_time::Delay;
@@ -24,6 +24,7 @@ pub async fn init_save(
     mosi_p: Peri<'static, P0_13>,
     sck_p: Peri<'static, P0_17>,
     cs_p: embassy_nrf::gpio::Output<'static>,
+    timesrc_p: Peri<'static, RTC0>,
 ) {
     //Init SPIM --> may need to be something we do in main, especially if we want
     //to share the SPI bus
@@ -37,7 +38,7 @@ pub async fn init_save(
     let sdcard = SdCard::new(exclusive_spi, Delay);
 
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
-    let volume_mgr = VolumeManager::new(sdcard, ts);
+    let volume_mgr = VolumeManager::new(sdcard, timesrc_p);
     let volume0 = volume_mgr.open_volume(VolumeIdx(0)).unwrap();
     info!("Volume 0: {:?}", volume0);
     let root_dir = volume0.open_root_dir().unwrap();
