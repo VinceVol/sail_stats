@@ -2,7 +2,6 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
-use cortex_m::prelude::_embedded_hal_digital_InputPin;
 use defmt::info;
 use embassy_nrf::{
     bind_interrupts,
@@ -19,7 +18,7 @@ bind_interrupts!(struct Irqs {
 });
 
 #[embassy_executor::task]
-async fn init_save(
+pub async fn init_save(
     spi_p: Peri<'static, SPI2>,
     miso_p: Peri<'static, P0_01>,
     mosi_p: Peri<'static, P0_13>,
@@ -36,4 +35,11 @@ async fn init_save(
         embedded_hal_bus::spi::ExclusiveDevice::new(spi, cs_p, embassy_time::Delay).unwrap();
 
     let sdcard = SdCard::new(exclusive_spi, Delay);
+
+    info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
+    let volume_mgr = VolumeManager::new(sdcard, ts);
+    let volume0 = volume_mgr.open_volume(VolumeIdx(0)).unwrap();
+    info!("Volume 0: {:?}", volume0);
+    let root_dir = volume0.open_root_dir().unwrap();
+    info!("we actually made it here!");
 }

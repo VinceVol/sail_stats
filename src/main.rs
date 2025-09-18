@@ -19,19 +19,14 @@ use fmt::info;
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_nrf::init(Default::default());
-    let mut led = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
-
     let _ = spawner.spawn(button(p.P0_14.into(), ButtonSide::A));
     let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
-    let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
+    //let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
 
-    loop {
-        info!("Hello, World!");
-        led.set_high();
-        Timer::after_secs(3).await;
-        led.set_low();
-        Timer::after_secs(3).await;
-    }
+    let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);
+    let _ = spawner.spawn(micro_sd::init_save(
+        p.SPI2, p.P0_01, p.P0_13, p.P0_17, cs_pin,
+    ));
 }
 
 //Putting this as a gut check to make sure the board is working and interacting
