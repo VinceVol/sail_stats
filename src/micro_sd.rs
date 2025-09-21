@@ -2,13 +2,13 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
-use defmt::info;
+use defmt::{info, println};
 use embassy_nrf::{
     bind_interrupts,
     peripherals::{P0_01, P0_13, P0_17, SPI2},
     spim, Peri,
 };
-use embassy_time::Delay;
+use embassy_time::{Delay, Timer};
 use embedded_sdmmc::{
     Error, Mode, SdCard, SdCardError, TimeSource, Timestamp, VolumeIdx, VolumeManager,
 };
@@ -32,11 +32,16 @@ pub async fn init_save(
     info!("Initializing external spi bus...");
     let config = spim::Config::default();
     let mut spi = spim::Spim::new(spi_p, Irqs, sck_p, miso_p, mosi_p, config);
+    for _ in 0..100000 {
+        let res = spi.blocking_write(&[1; 100]);
+        println!("The res was {:?}", res);
+    }
 
     let exclusive_spi =
         embedded_hal_bus::spi::ExclusiveDevice::new(spi, cs_p, embassy_time::Delay).unwrap();
 
     let sdcard = SdCard::new(exclusive_spi, Delay);
+    info!("about to read card size");
 
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
     let time_source = RTCWrapper::new();

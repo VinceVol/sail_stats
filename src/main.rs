@@ -5,6 +5,8 @@ mod fmt;
 mod heel;
 mod micro_sd;
 
+use core::borrow::Borrow;
+
 use defmt::dbg;
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
@@ -12,7 +14,10 @@ use panic_halt as _;
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
-use embassy_nrf::gpio::{AnyPin, Input, Level, Output, OutputDrive};
+use embassy_nrf::{
+    gpio::{AnyPin, Input, Level, Output, OutputDrive},
+    peripherals::P0_13,
+};
 use embassy_time::Timer;
 use fmt::info;
 
@@ -23,6 +28,7 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
     //let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
 
+    //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);
     let _ = spawner.spawn(micro_sd::init_save(
         p.SPI2, p.P0_01, p.P0_13, p.P0_17, cs_pin,
