@@ -2,6 +2,7 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
+use cortex_m::iprintln;
 use defmt::{info, println};
 use embassy_nrf::{
     bind_interrupts,
@@ -42,25 +43,36 @@ pub async fn init_save(
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
     let time_source = RTCWrapper::new();
     let volume_mgr = VolumeManager::new(sdcard, time_source);
-    let volume0 = volume_mgr.open_volume(VolumeIdx(0));
-    if volume0.is_ok_and(|v| v.open_root_dir().is_ok()) {
-        info!("Root dir success!");
-    } else {
-        info!("Root dir failure!");
-    }
+    let volume0 = volume_mgr.open_volume(VolumeIdx(0)).unwrap();
+    let root_dir = volume0.open_root_dir().unwrap();
+    let my_other_file = root_dir
+        .open_file_in_dir("MY_DATA.CSV", Mode::ReadWriteCreateOrAppend)
+        .unwrap();
+    my_other_file.write(b"Timestamp,Signal,Value\n").unwrap();
+    my_other_file
+        .write(b"2025-01-01T00:00:00Z,TEMP,25.0\n")
+        .unwrap();
+    my_other_file
+        .write(b"2025-01-01T00:00:01Z,TEMP,25.1\n")
+        .unwrap();
+    my_other_file
+        .write(b"2025-01-01T00:00:02Z,TEMP,25.2\n")
+        .unwrap();
+    // Don't forget to flush the file so that the directory entry is updated
+    my_other_file.flush().unwrap();
 }
 
 //Not sure what to contain within the struct given that the methods surrounding this wrapper
 // are initialized in main || using var functional to call out whether the embassy time crate
 // is currently functioning
 struct RTCWrapper {
-    functional: bool,
+    _functional: bool,
 }
 
 impl RTCWrapper {
     fn new() -> RTCWrapper {
         //find TEST for whether or not embassy time is working properly
-        RTCWrapper { functional: true }
+        RTCWrapper { _functional: true }
     }
 }
 
