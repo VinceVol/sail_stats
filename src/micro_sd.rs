@@ -9,6 +9,7 @@ use embassy_nrf::{
     peripherals::{P0_01, P0_13, P0_17, SPI2},
     spim, Peri,
 };
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Delay, Timer};
 use embedded_sdmmc::{
     Error, Mode, SdCard, SdCardError, TimeSource, Timestamp, VolumeIdx, VolumeManager,
@@ -60,6 +61,14 @@ pub async fn init_save(
         .unwrap();
     // Don't forget to flush the file so that the directory entry is updated
     my_other_file.flush().unwrap();
+}
+
+//Trying to have a channel that implements a few functions like 'contains' and what not
+//to drive what the sensors are doing --basically stop reading data once you've queued the
+//channel
+static MICRO_QUEU: Channel<CriticalSectionRawMutex, ([char; 4], [u8; 10]), 10> = Channel::new();
+pub struct MicroQueu {
+    //TODO
 }
 
 //Not sure what to contain within the struct given that the methods surrounding this wrapper

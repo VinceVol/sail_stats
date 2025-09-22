@@ -66,6 +66,7 @@ pub async fn init_heel(
             //represents y tilt
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
+
             info!("Roll: {} Pitch: {}", roll, pitch)
         }
     }
