@@ -49,7 +49,16 @@ pub async fn init_save(
     let my_other_file = root_dir
         .open_file_in_dir("MY_DATA.CSV", Mode::ReadWriteCreateOrAppend)
         .unwrap();
-    my_other_file.write(b"Timestamp,Signal,Value\n").unwrap();
+    my_other_file.write(b"Timestamp,Roll,Pitch\n").unwrap();
+
+    loop {
+        //setting the refresh rate of all data collected written to micro_sd
+        Timer::after_secs(1).await;
+        if  MICRO_QUEU.receiver().ready_to_receive() {
+            let data_point 
+        }
+        
+    }
     my_other_file
         .write(b"2025-01-01T00:00:00Z,TEMP,25.0\n")
         .unwrap();
@@ -63,14 +72,11 @@ pub async fn init_save(
     my_other_file.flush().unwrap();
 }
 
-//Trying to have a channel that implements a few functions like 'contains' and what not
-//to drive what the sensors are doing --basically stop reading data once you've queued the
-//channel
-static MICRO_QUEU: Channel<CriticalSectionRawMutex, ([char; 4], [u8; 10]), 10> = Channel::new();
-pub struct MicroQueu {
-    //TODO
-}
+static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 10]), 20> = Channel::new();
+//we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
+//header values and columns TODO -> add macro for header names
+const CSV_HEADERS: [(u8,[char;5]); 3] = [(0,['T','i','m','e',' ']),(1,['R','o','l','l',' ']),(2,['P','i','t','c','h'])];
 //Not sure what to contain within the struct given that the methods surrounding this wrapper
 // are initialized in main || using var functional to call out whether the embassy time crate
 // is currently functioning
