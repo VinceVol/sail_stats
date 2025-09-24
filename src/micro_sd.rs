@@ -2,6 +2,8 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
+use core::fmt::Pointer;
+
 use cortex_m::iprintln;
 use defmt::{info, println};
 use embassy_nrf::{
@@ -49,34 +51,47 @@ pub async fn init_save(
     let my_other_file = root_dir
         .open_file_in_dir("MY_DATA.CSV", Mode::ReadWriteCreateOrAppend)
         .unwrap();
-    my_other_file.write(b"Timestamp,Roll,Pitch\n").unwrap();
+    for header in CSV_HEADERS {
+        my_other_file.write(header).unwrap();
+    }
 
     loop {
         //setting the refresh rate of all data collected written to micro_sd
         Timer::after_secs(1).await;
-        if  MICRO_QUEU.receiver().ready_to_receive() {
-            let data_point 
+        if !MICRO_QUEU.receiver().is_empty() {
+            let mut empty_q: [(u8, [u8; 10]); Q_SIZE] = [((Q_SIZE as u8) + 1, [0; 10]); Q_SIZE];
+
+            for i in 0..MICRO_QUEU.receiver().len() {
+                empty_q[i] = MICRO_QUEU.receive().await;
+            }
+            empty_q.sort_unstable_by_key(|d| d.0);
+
+            //150 marking the maximum length of each line? not sure what this really needs to be
+            let mut line: [u8; 150] = [0; 150];
+            let mut l_p = 0;
+            for (_col, data) in empty_q {
+                for c in data {
+                    if c != 0 {
+                        line[l_p] = c;
+                    }
+                    l_p += 1;
+                }
+                line[l_p] = ',' as u8;
+                l_p += 1;
+            }
+            my_other_file.write(&line).unwrap();
+            // Don't forget to flush the file so that the directory entry is updated
+            my_other_file.flush().unwrap();
         }
-        
     }
-    my_other_file
-        .write(b"2025-01-01T00:00:00Z,TEMP,25.0\n")
-        .unwrap();
-    my_other_file
-        .write(b"2025-01-01T00:00:01Z,TEMP,25.1\n")
-        .unwrap();
-    my_other_file
-        .write(b"2025-01-01T00:00:02Z,TEMP,25.2\n")
-        .unwrap();
-    // Don't forget to flush the file so that the directory entry is updated
-    my_other_file.flush().unwrap();
 }
 
-static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 10]), 20> = Channel::new();
+const Q_SIZE: usize = 20;
+static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 10]), Q_SIZE> = Channel::new();
 //we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
 //header values and columns TODO -> add macro for header names
-const CSV_HEADERS: [(u8,[char;5]); 3] = [(0,['T','i','m','e',' ']),(1,['R','o','l','l',' ']),(2,['P','i','t','c','h'])];
+const CSV_HEADERS: [&[u8; 5]; 3] = [b"Time ", b"Roll ", b"Pitch"];
 //Not sure what to contain within the struct given that the methods surrounding this wrapper
 // are initialized in main || using var functional to call out whether the embassy time crate
 // is currently functioning
