@@ -26,7 +26,7 @@ async fn main(spawner: Spawner) {
     let p = embassy_nrf::init(Default::default());
     let _ = spawner.spawn(button(p.P0_14.into(), ButtonSide::A));
     let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
-    //let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
+    let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
 
     //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);

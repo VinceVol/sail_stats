@@ -16,6 +16,8 @@ use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
+use crate::micro_sd::MICRO_QUEU;
+
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
 bind_interrupts!(
@@ -67,6 +69,10 @@ pub async fn init_heel(
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
 
+            let roll_buffer = roll;
+            let pitch_buffer = pitch.to_ne_bytes();
+            MICRO_QUEU.send((1, roll_buffer)).await;
+            MICRO_QUEU.send((1, pitch_buffer)).await;
             info!("Roll: {} Pitch: {}", roll, pitch)
         }
     }

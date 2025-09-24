@@ -53,13 +53,20 @@ pub async fn init_save(
         .unwrap();
     for header in CSV_HEADERS {
         my_other_file.write(header).unwrap();
+        my_other_file.write(b",").unwrap();
     }
+    my_other_file.write(b"\n").unwrap();
 
-    loop {
+    //adding an index for now as I think the filesave is getting corrupt in the way
+    //I'm unplugging the sd card
+    let mut index = 0;
+    while index < 10 {
+        index += 1;
         //setting the refresh rate of all data collected written to micro_sd
         Timer::after_secs(1).await;
         if !MICRO_QUEU.receiver().is_empty() {
-            let mut empty_q: [(u8, [u8; 10]); Q_SIZE] = [((Q_SIZE as u8) + 1, [0; 10]); Q_SIZE];
+            info!("MICRO_QUEU Data received!");
+            let mut empty_q: [(u8, [u8; 4]); Q_SIZE] = [((Q_SIZE as u8) + 1, [0; 4]); Q_SIZE];
 
             for i in 0..MICRO_QUEU.receiver().len() {
                 empty_q[i] = MICRO_QUEU.receive().await;
@@ -68,7 +75,7 @@ pub async fn init_save(
 
             //150 marking the maximum length of each line? not sure what this really needs to be
             let mut line: [u8; 150] = [0; 150];
-            let mut l_p = 0;
+            let mut l_p = 1;
             for (_col, data) in empty_q {
                 for c in data {
                     if c != 0 {
@@ -87,7 +94,7 @@ pub async fn init_save(
 }
 
 const Q_SIZE: usize = 20;
-static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 10]), Q_SIZE> = Channel::new();
+pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 4]), Q_SIZE> = Channel::new();
 //we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
 //header values and columns TODO -> add macro for header names
