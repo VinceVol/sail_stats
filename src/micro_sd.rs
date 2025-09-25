@@ -137,10 +137,26 @@ impl TimeSource for RTCWrapper {
 }
 
 //Quite the dance we've made to be able to lump f32 & f64 together
-pub fn num_to_buffer<T: Float + FromPrimitive>(mut num: T, buf: &mut [u8], decimal: T) {
+pub fn num_to_buffer<T: Float + FromPrimitive>(mut num: T, buf: &mut [u8], decimal: u8) {
     //keep track of digits to know whether buffer was proper size
-    let mut num_length = decimal + T::from_u8(1).unwrap();
+    // -2 indicated adding a decimal
+    let buf_len = buf.len();
+    buf[buf_len - (decimal as usize) - 2] = b"."[0];
 
     //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
-    num = decimal * T::from_u8(100).unwrap() * num;
+    num = T::from_u8(decimal).unwrap() * T::from_u8(100).unwrap() * num;
+    let mut int_num = T::to_u8(&num).unwrap();
+
+    let mut i = buf_len - 1;
+    loop {
+        if buf[i] == b"."[0] {
+            i -= 1;
+            continue;
+        }
+
+        buf[i] = int_num % 10;
+        int_num /= 10;
+    }
+    //TODO need to write a TEST for this as well as adding some failsafes so that none of these
+    // unwraps screw us
 }
