@@ -2,7 +2,7 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
-use core::fmt::Pointer;
+use core::{fmt::Pointer, num};
 
 use cortex_m::iprintln;
 use defmt::{info, println};
@@ -16,6 +16,7 @@ use embassy_time::{Delay, Timer};
 use embedded_sdmmc::{
     Error, Mode, SdCard, SdCardError, TimeSource, Timestamp, VolumeIdx, VolumeManager,
 };
+use num_traits::{Float, FromPrimitive};
 
 //Just like I2C not really sure what the difference between spi2 and spi3 is
 //and when to use one or the other
@@ -133,4 +134,13 @@ impl TimeSource for RTCWrapper {
             return Timestamp::from_calendar(2025, 7, 28, 0, 0, 0).unwrap();
         }
     }
+}
+
+//Quite the dance we've made to be able to lump f32 & f64 together
+pub fn num_to_buffer<T: Float + FromPrimitive>(mut num: T, buf: &mut [u8], decimal: T) {
+    //keep track of digits to know whether buffer was proper size
+    let mut num_length = decimal + T::from_u8(1).unwrap();
+
+    //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
+    num = decimal * T::from_u8(100).unwrap() * num;
 }

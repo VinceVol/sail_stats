@@ -57,3 +57,8 @@ debug = [
     "embassy-time/defmt-timestamp-uptime",
     "embassy-nrf/defmt",
 ]
+
+[dependencies.num-traits]
+version = "0.2.19"
+default-features = false
+features = ["libm"]
