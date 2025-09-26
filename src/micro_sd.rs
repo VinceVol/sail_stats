@@ -66,8 +66,8 @@ pub async fn init_save(
         //setting the refresh rate of all data collected written to micro_sd
         Timer::after_secs(1).await;
         if !MICRO_QUEU.receiver().is_empty() {
-            info!("MICRO_QUEU Data received!");
-            let mut empty_q: [(u8, [u8; 4]); Q_SIZE] = [((Q_SIZE as u8) + 1, [0; 4]); Q_SIZE];
+            let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
+                [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
 
             for i in 0..MICRO_QUEU.receiver().len() {
                 empty_q[i] = MICRO_QUEU.receive().await;
@@ -77,8 +77,11 @@ pub async fn init_save(
             //150 marking the maximum length of each line? not sure what this really needs to be
             let mut line: [u8; 150] = [0; 150];
             let mut l_p = 1;
+            println!("Empty Queu: {}", empty_q);
             for (_col, data) in empty_q {
+                println!("{}", data);
                 for c in data {
+                    //TODO figure out why line[l_p] isn't writing the characters from out numbers
                     if c != 0 {
                         line[l_p] = c;
                     }
@@ -94,8 +97,10 @@ pub async fn init_save(
     }
 }
 
+const BUFFER_LENGTH: usize = 6;
 const Q_SIZE: usize = 20;
-pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; 4]), Q_SIZE> = Channel::new();
+pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; BUFFER_LENGTH]), Q_SIZE> =
+    Channel::new();
 //we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
 //header values and columns TODO -> add macro for header names
@@ -137,18 +142,27 @@ impl TimeSource for RTCWrapper {
 }
 
 //Quite the dance we've made to be able to lump f32 & f64 together
-pub fn num_to_buffer<T: Float + FromPrimitive>(mut num: T, buf: &mut [u8], decimal: u8) {
+pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
+    mut num: T,
+    buf: &mut [u8],
+    decimal: u8,
+) {
     //keep track of digits to know whether buffer was proper size
     // -2 indicated adding a decimal
     let buf_len = buf.len();
-    buf[buf_len - (decimal as usize) - 2] = b"."[0];
+    if buf_len == 0 {
+        info!("The buffer provided in num_to_buffer fun is of size 0");
+        return;
+    }
+    buf[buf_len - (decimal as usize) - 1] = b"."[0];
 
     //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
-    num = T::from_u8(decimal).unwrap() * T::from_u8(100).unwrap() * num;
-    let mut int_num = T::to_u8(&num).unwrap();
+    num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
+    let mut int_num = T::to_f64(&num).unwrap() as u8;
 
+    //I think in theory this won't crash for any real float
     let mut i = buf_len - 1;
-    loop {
+    while i > 0 {
         if buf[i] == b"."[0] {
             i -= 1;
             continue;
@@ -156,6 +170,7 @@ pub fn num_to_buffer<T: Float + FromPrimitive>(mut num: T, buf: &mut [u8], decim
 
         buf[i] = int_num % 10;
         int_num /= 10;
+        i -= 1;
     }
     //TODO need to write a TEST for this as well as adding some failsafes so that none of these
     // unwraps screw us

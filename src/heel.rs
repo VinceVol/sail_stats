@@ -4,6 +4,7 @@ use core::f32::consts::PI;
 
 use defmt::dbg;
 use defmt::info;
+use defmt::println;
 use embassy_nrf::{
     bind_interrupts,
     peripherals::{P0_08, P0_16, TWISPI0},
@@ -16,6 +17,7 @@ use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
+use crate::micro_sd::num_to_buffer;
 use crate::micro_sd::MICRO_QUEU;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
@@ -69,11 +71,15 @@ pub async fn init_heel(
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
 
-            let roll_buffer = roll;
-            let pitch_buffer = pitch.to_ne_bytes();
-            MICRO_QUEU.send((1, roll_buffer)).await;
-            MICRO_QUEU.send((1, pitch_buffer)).await;
-            info!("Roll: {} Pitch: {}", roll, pitch)
+            let mut roll_buf: [u8; 6] = [0; 6];
+            num_to_buffer(roll, &mut roll_buf, 2);
+            //let mut pitch_buf: [u8; 6] = [0; 6];
+            //num_to_buffer(pitch, &mut pitch_buf, 2);
+            //println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
+
+            MICRO_QUEU.send((1, roll_buf)).await;
+            //MICRO_QUEU.send((1, pitch_buf)).await;
+            info!("Roll: {} ", roll);
         }
     }
 }
