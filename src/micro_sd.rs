@@ -60,40 +60,47 @@ pub async fn init_save(
 
     //adding an index for now as I think the filesave is getting corrupt in the way
     //I'm unplugging the sd card
-    let mut index = 0;
-    while index < 10 {
-        index += 1;
-        //setting the refresh rate of all data collected written to micro_sd
-        Timer::after_secs(1).await;
-        if !MICRO_QUEU.receiver().is_empty() {
-            let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
-                [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
+    //setting the refresh rate of all data collected written to micro_sd
+    Timer::after_secs(1).await;
+    if !MICRO_QUEU.receiver().is_empty() {
+        let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
+            [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
 
-            for i in 0..MICRO_QUEU.receiver().len() {
-                empty_q[i] = MICRO_QUEU.receive().await;
+        //using current _q var thinking it prevents the q from changing size as you're
+        //reading it. Maybe this isn't possible anyway?
+        let current_q = MICRO_QUEU.receiver();
+        for i in 0..current_q.len() {
+            empty_q[i] = current_q.receive().await; //TODO shouldn't need an await since all the data should already be there
+        }
+        empty_q.sort_unstable_by_key(|d| d.0);
+
+        //150 marking the maximum length of each line? not sure what this really needs to be
+        let mut line: [u8; 150] = [0; 150];
+        let mut l_p = 1; //index within line
+        let mut act_col = 0; //if data is missing we need to add a ghost col -- this keeps track
+        for (col, data) in empty_q {
+            if data == [0; BUFFER_LENGTH] {
+                continue;
             }
-            empty_q.sort_unstable_by_key(|d| d.0);
-
-            //150 marking the maximum length of each line? not sure what this really needs to be
-            let mut line: [u8; 150] = [0; 150];
-            let mut l_p = 1;
-            println!("Empty Queu: {}", empty_q);
-            for (_col, data) in empty_q {
-                println!("{}", data);
-                for c in data {
-                    //TODO figure out why line[l_p] isn't writing the characters from out numbers
-                    if c != 0 {
-                        line[l_p] = c;
-                    }
-                    l_p += 1;
-                }
+            while col > act_col {
                 line[l_p] = ',' as u8;
                 l_p += 1;
+                act_col += 1;
             }
-            my_other_file.write(&line).unwrap();
-            // Don't forget to flush the file so that the directory entry is updated
-            my_other_file.flush().unwrap();
+            for c in data {
+                //if c isnt 0 in buf u8
+                if c != 0x30 {
+                    line[l_p] = c;
+                    l_p += 1;
+                }
+            }
+            line[l_p] = ',' as u8;
+            l_p += 1;
         }
+        line[l_p] = '\n' as u8;
+        my_other_file.write(&line).unwrap();
+        // Don't forget to flush the file so that the directory entry is updated
+        my_other_file.flush().unwrap();
     }
 }
 
@@ -141,7 +148,7 @@ impl TimeSource for RTCWrapper {
     }
 }
 
-//Quite the dance we've made to be able to lump f32 & f64 together
+//Quite the dance we've made to be able to lump f32 & f64 together and convert to utf8 buf
 pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
     mut num: T,
     buf: &mut [u8],
@@ -154,7 +161,7 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
         info!("The buffer provided in num_to_buffer fun is of size 0");
         return;
     }
-    buf[buf_len - (decimal as usize) - 1] = b"."[0];
+    buf[buf_len - (decimal as usize) - 1] = '.' as u8;
 
     //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
     num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
@@ -163,14 +170,19 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
     //I think in theory this won't crash for any real float
     let mut i = buf_len - 1;
     while i > 0 {
-        if buf[i] == b"."[0] {
+        if buf[i] == '.' as u8 {
             i -= 1;
             continue;
         }
 
-        buf[i] = int_num % 10;
+        //+48 is super important otherwise the number shows up as blank lol
+        //hexadecimal conversion is 0x30 = 0
+        buf[i] = int_num % 10 + 0x30;
         int_num /= 10;
         i -= 1;
+    }
+    if int_num > 1 {
+        println!("Too small of a buffer was given for num_to_buffer fn");
     }
     //TODO need to write a TEST for this as well as adding some failsafes so that none of these
     // unwraps screw us
