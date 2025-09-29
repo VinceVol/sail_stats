@@ -12,7 +12,7 @@ use embassy_nrf::{
     spim, Peri,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
-use embassy_time::{Delay, Timer};
+use embassy_time::{Delay, Instant, Timer};
 use embedded_sdmmc::{
     Error, Mode, SdCard, SdCardError, TimeSource, Timestamp, VolumeIdx, VolumeManager,
 };
@@ -43,8 +43,6 @@ pub async fn init_save(
 
     //sdcard crate is nice enough to spam the sd card for us to get it in spi mode
     let sdcard = SdCard::new(exclusive_spi, Delay);
-
-    info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
     let time_source = RTCWrapper::new();
     let volume_mgr = VolumeManager::new(sdcard, time_source);
     let volume0 = volume_mgr.open_volume(VolumeIdx(0)).unwrap();
@@ -52,14 +50,14 @@ pub async fn init_save(
     let my_other_file = root_dir
         .open_file_in_dir("MY_DATA.CSV", Mode::ReadWriteCreateOrAppend)
         .unwrap();
+
+    //Sd card has been initialized
     for header in CSV_HEADERS {
         my_other_file.write(header).unwrap();
         my_other_file.write(b",").unwrap();
     }
     my_other_file.write(b"\n").unwrap();
 
-    //adding an index for now as I think the filesave is getting corrupt in the way
-    //I'm unplugging the sd card
     //setting the refresh rate of all data collected written to micro_sd
     Timer::after_secs(1).await;
     if !MICRO_QUEU.receiver().is_empty() {
@@ -72,6 +70,7 @@ pub async fn init_save(
         for i in 0..current_q.len() {
             empty_q[i] = current_q.receive().await; //TODO shouldn't need an await since all the data should already be there
         }
+        todo!(); //TODO add timestamp to col 0 -- we've written the fun
         empty_q.sort_unstable_by_key(|d| d.0);
 
         //150 marking the maximum length of each line? not sure what this really needs to be
@@ -124,6 +123,21 @@ impl RTCWrapper {
         //find TEST for whether or not embassy time is working properly
         RTCWrapper { _functional: true }
     }
+    fn buf_time_now(&self) -> [u8; 8] {
+        let now = embassy_time::Instant::now().as_secs();
+        let clock_time = sec_to_time(now);
+        let mut hr_buf = [0; 2];
+        let mut min_buf = [0; 2];
+        let mut sec_buf = [0; 2];
+        num_to_buffer(clock_time.0 as f32, &mut hr_buf, 0);
+        num_to_buffer(clock_time.1 as f32, &mut min_buf, 0);
+        num_to_buffer(clock_time.2 as f32, &mut sec_buf, 0);
+        let mut full_time: [u8; 8] = [0, 0, ':' as u8, 0, 0, ':' as u8, 0, 0];
+        full_time[0..2].copy_from_slice(&hr_buf);
+        full_time[3..5].copy_from_slice(&min_buf);
+        full_time[6..8].copy_from_slice(&sec_buf);
+        return full_time;
+    }
 }
 
 //need a shitty function to convert ticks from embassy_time to hour/min/sec it's a fair
@@ -157,15 +171,15 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
     //keep track of digits to know whether buffer was proper size
     // -2 indicated adding a decimal
     let buf_len = buf.len();
-    if buf_len == 0 {
-        info!("The buffer provided in num_to_buffer fun is of size 0");
+    if (buf_len as u8) < decimal + 1 {
+        info!("The buffer provided in num_to_buffer fun is too small for num of decimal places");
         return;
     }
     buf[buf_len - (decimal as usize) - 1] = '.' as u8;
 
     //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
     num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
-    let mut int_num = T::to_f64(&num).unwrap() as u8;
+    let mut int_num = T::to_f64(&num).unwrap() as u8; //we panick if we try to go direct to u8 ::to_u8
 
     //I think in theory this won't crash for any real float
     let mut i = buf_len - 1;
@@ -175,7 +189,7 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
             continue;
         }
 
-        //+48 is super important otherwise the number shows up as blank lol
+        //0x30 is super important otherwise the number shows up as blank lol
         //hexadecimal conversion is 0x30 = 0
         buf[i] = int_num % 10 + 0x30;
         int_num /= 10;
