@@ -55,55 +55,65 @@ pub async fn init_save(
     for header in CSV_HEADERS {
         my_other_file.write(header).unwrap();
         my_other_file.write(b",").unwrap();
+        my_other_file.write(b"\n").unwrap();
     }
-    my_other_file.write(b"\n").unwrap();
+    loop {
+        //setting the refresh rate of all data collected written to micro_sd
+        Timer::after_secs(1).await;
+        if !MICRO_QUEU.is_empty() {
+            let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
+                [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
 
-    //setting the refresh rate of all data collected written to micro_sd
-    Timer::after_secs(1).await;
-    if !MICRO_QUEU.receiver().is_empty() {
-        let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
-            [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
-
-        //using current _q var thinking it prevents the q from changing size as you're
-        //reading it. Maybe this isn't possible anyway?
-        let current_q = MICRO_QUEU.receiver();
-        for i in 0..current_q.len() {
-            empty_q[i] = current_q.receive().await; //TODO shouldn't need an await since all the data should already be there
-        }
-        todo!(); //TODO add timestamp to col 0 -- we've written the fun
-        empty_q.sort_unstable_by_key(|d| d.0);
-
-        //150 marking the maximum length of each line? not sure what this really needs to be
-        let mut line: [u8; 150] = [0; 150];
-        let mut l_p = 1; //index within line
-        let mut act_col = 0; //if data is missing we need to add a ghost col -- this keeps track
-        for (col, data) in empty_q {
-            if data == [0; BUFFER_LENGTH] {
-                continue;
+            //using current _q var thinking it prevents the q from changing size as you're
+            //reading it. Maybe this isn't possible anyway?
+            let current_q = MICRO_QUEU.receiver();
+            for i in 0..current_q.len() {
+                empty_q[i] = current_q.receive().await; //TODO shouldn't need an await since all the data should already be there
             }
-            while col > act_col {
+
+            //get the time
+            empty_q[current_q.len()] = (0, buf_time_now());
+
+            //sort by col
+            empty_q.sort_unstable_by_key(|d| d.0);
+
+            //150 marking the maximum length of each line? not sure what this really needs to be
+            let mut line: [u8; 150] = [0; 150];
+            let mut l_p = 1; //index within line
+            let mut act_col = 0; //if data is missing we need to add a ghost col -- this keeps track
+            for (col, data) in empty_q {
+                // println!(
+                //     "col: {} \nData: {}",
+                //     col,
+                //     core::str::from_utf8(&data).unwrap()
+                // );
+                if data == [0; BUFFER_LENGTH] {
+                    continue;
+                }
+                while col > act_col {
+                    line[l_p] = ',' as u8;
+                    l_p += 1;
+                    act_col += 1;
+                }
+                for c in data {
+                    //if c isnt 0 in buf u8
+                    if c != 0x30 {
+                        line[l_p] = c;
+                        l_p += 1;
+                    }
+                }
                 line[l_p] = ',' as u8;
                 l_p += 1;
-                act_col += 1;
             }
-            for c in data {
-                //if c isnt 0 in buf u8
-                if c != 0x30 {
-                    line[l_p] = c;
-                    l_p += 1;
-                }
-            }
-            line[l_p] = ',' as u8;
-            l_p += 1;
+            line[l_p] = '\n' as u8;
+            my_other_file.write(&line).unwrap();
+            // Don't forget to flush the file so that the directory entry is updated
+            my_other_file.flush().unwrap();
         }
-        line[l_p] = '\n' as u8;
-        my_other_file.write(&line).unwrap();
-        // Don't forget to flush the file so that the directory entry is updated
-        my_other_file.flush().unwrap();
     }
 }
 
-const BUFFER_LENGTH: usize = 6;
+pub static BUFFER_LENGTH: usize = 8;
 const Q_SIZE: usize = 20;
 pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; BUFFER_LENGTH]), Q_SIZE> =
     Channel::new();
@@ -123,21 +133,28 @@ impl RTCWrapper {
         //find TEST for whether or not embassy time is working properly
         RTCWrapper { _functional: true }
     }
-    fn buf_time_now(&self) -> [u8; 8] {
-        let now = embassy_time::Instant::now().as_secs();
-        let clock_time = sec_to_time(now);
-        let mut hr_buf = [0; 2];
-        let mut min_buf = [0; 2];
-        let mut sec_buf = [0; 2];
-        num_to_buffer(clock_time.0 as f32, &mut hr_buf, 0);
-        num_to_buffer(clock_time.1 as f32, &mut min_buf, 0);
-        num_to_buffer(clock_time.2 as f32, &mut sec_buf, 0);
-        let mut full_time: [u8; 8] = [0, 0, ':' as u8, 0, 0, ':' as u8, 0, 0];
-        full_time[0..2].copy_from_slice(&hr_buf);
-        full_time[3..5].copy_from_slice(&min_buf);
-        full_time[6..8].copy_from_slice(&sec_buf);
-        return full_time;
-    }
+}
+
+//Removed this from RTCWrapper since it only needs embassy time
+fn buf_time_now() -> [u8; 8] {
+    let now = embassy_time::Instant::now().as_secs();
+    let clock_time = sec_to_time(now);
+    println!("now: {}\nclk: {}", now, clock_time);
+    let mut hr_buf = [0; 2];
+    let mut min_buf = [0; 2];
+    let mut sec_buf = [0; 2];
+    num_to_buffer(clock_time.0 as f32, &mut hr_buf, 0);
+    num_to_buffer(clock_time.1 as f32, &mut min_buf, 0);
+    num_to_buffer(clock_time.2 as f32, &mut sec_buf, 0);
+    let mut full_time: [u8; 8] = [0, 0, ':' as u8, 0, 0, ':' as u8, 0, 0];
+    [full_time[0], full_time[1]] = hr_buf;
+    [full_time[2], full_time[3]] = min_buf;
+    [full_time[4], full_time[5]] = sec_buf;
+    println!(
+        "buf_time_now: Time: {}",
+        core::str::from_utf8(&full_time).unwrap()
+    );
+    return full_time;
 }
 
 //need a shitty function to convert ticks from embassy_time to hour/min/sec it's a fair
@@ -196,7 +213,10 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
         i -= 1;
     }
     if int_num > 1 {
-        println!("Too small of a buffer was given for num_to_buffer fn");
+        println!(
+            "Too small of a buffer was given for num_to_buffer fn for {} with decimal # {}",
+            num, decimal
+        );
     }
     //TODO need to write a TEST for this as well as adding some failsafes so that none of these
     // unwraps screw us

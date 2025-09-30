@@ -18,6 +18,7 @@ use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
 use crate::micro_sd::num_to_buffer;
+use crate::micro_sd::BUFFER_LENGTH;
 use crate::micro_sd::MICRO_QUEU;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
@@ -71,9 +72,9 @@ pub async fn init_heel(
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
 
-            let mut roll_buf: [u8; 6] = [0; 6];
+            let mut roll_buf: [u8; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
             num_to_buffer(roll, &mut roll_buf, 2);
-            let mut pitch_buf: [u8; 6] = [0; 6];
+            let mut pitch_buf: [u8; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
             num_to_buffer(pitch, &mut pitch_buf, 2);
             println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
 
