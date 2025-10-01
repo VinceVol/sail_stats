@@ -55,8 +55,8 @@ pub async fn init_save(
     for header in CSV_HEADERS {
         my_other_file.write(header).unwrap();
         my_other_file.write(b",").unwrap();
-        my_other_file.write(b"\n").unwrap();
     }
+    my_other_file.write(b"\n").unwrap();
     loop {
         //setting the refresh rate of all data collected written to micro_sd
         Timer::after_secs(1).await;
@@ -66,13 +66,17 @@ pub async fn init_save(
 
             //using current _q var thinking it prevents the q from changing size as you're
             //reading it. Maybe this isn't possible anyway?
-            let current_q = MICRO_QUEU.receiver();
-            for i in 0..current_q.len() {
-                empty_q[i] = current_q.receive().await; //TODO shouldn't need an await since all the data should already be there
+            let mut i = 0;
+            loop {
+                empty_q[i] = MICRO_QUEU.receive().await;
+                i += 1;
+                if MICRO_QUEU.is_empty() {
+                    break;
+                }
             }
 
             //get the time
-            empty_q[current_q.len()] = (0, buf_time_now());
+            empty_q[Q_SIZE - 1] = (0, buf_time_now());
 
             //sort by col
             empty_q.sort_unstable_by_key(|d| d.0);
@@ -81,12 +85,14 @@ pub async fn init_save(
             let mut line: [u8; 150] = [0; 150];
             let mut l_p = 1; //index within line
             let mut act_col = 0; //if data is missing we need to add a ghost col -- this keeps track
+
+            // info!("Start Read!");
             for (col, data) in empty_q {
-                // println!(
-                //     "col: {} \nData: {}",
-                //     col,
-                //     core::str::from_utf8(&data).unwrap()
-                // );
+                //     println!(
+                //         "col: {} \nData: {}",
+                //         col,
+                //         core::str::from_utf8(&data).unwrap()
+                //     );
                 if data == [0; BUFFER_LENGTH] {
                     continue;
                 }
@@ -102,10 +108,9 @@ pub async fn init_save(
                         l_p += 1;
                     }
                 }
-                line[l_p] = ',' as u8;
-                l_p += 1;
             }
             line[l_p] = '\n' as u8;
+            // info!("End Read!");
             my_other_file.write(&line).unwrap();
             // Don't forget to flush the file so that the directory entry is updated
             my_other_file.flush().unwrap();
@@ -192,10 +197,12 @@ pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
         info!("The buffer provided in num_to_buffer fun is too small for num of decimal places");
         return;
     }
-    buf[buf_len - (decimal as usize) - 1] = '.' as u8;
+    if decimal > 0 {
+        buf[buf_len - (decimal as usize) - 1] = '.' as u8;
+        //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
+        num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
+    }
 
-    //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
-    num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
     let mut int_num = T::to_f64(&num).unwrap() as u8; //we panick if we try to go direct to u8 ::to_u8
 
     //I think in theory this won't crash for any real float

@@ -76,10 +76,12 @@ pub async fn init_heel(
             num_to_buffer(roll, &mut roll_buf, 2);
             let mut pitch_buf: [u8; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
             num_to_buffer(pitch, &mut pitch_buf, 2);
-            println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
+            // println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
 
             MICRO_QUEU.send((1, roll_buf)).await;
             MICRO_QUEU.send((2, pitch_buf)).await;
+            // MICRO_QUEU.send((1, *b"ROLLBUFF")).await;
+            // MICRO_QUEU.send((2, *b"PITCHBUF")).await;
         }
     }
 }
