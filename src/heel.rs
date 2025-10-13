@@ -6,9 +6,9 @@ use defmt::dbg;
 use defmt::info;
 use defmt::println;
 use embassy_nrf::{
-    bind_interrupts,
+    Peri, bind_interrupts,
     peripherals::{P0_08, P0_16, TWISPI0},
-    twim, Peri,
+    twim,
 };
 
 use embassy_time::Delay;
@@ -17,9 +17,9 @@ use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
-use crate::micro_sd::num_to_buffer;
 use crate::micro_sd::BUFFER_LENGTH;
 use crate::micro_sd::MICRO_QUEU;
+use crate::micro_sd::num_to_buffer;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference

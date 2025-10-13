@@ -7,9 +7,9 @@ use core::{fmt::Pointer, num};
 use cortex_m::iprintln;
 use defmt::{info, println};
 use embassy_nrf::{
-    bind_interrupts,
+    Peri, bind_interrupts,
     peripherals::{P0_01, P0_13, P0_17, SPI2},
-    spim, Peri,
+    spim,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::{Delay, Instant, Timer};

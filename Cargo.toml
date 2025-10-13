@@ -1,7 +1,7 @@
 # This file was automatically generated.
 
 [package]
-edition = "2021"
+edition = "2024"
 name = "sail_stats"
 version = "0.1.0"
 
@@ -23,7 +23,7 @@ lsm303agr = "1.1.0"
 panic-halt = "1.0.0"
 panic-probe = { version = "1.0.0", features = ["print-defmt"], optional = true }
 static_cell = "2.1.1"
-#emb_txt_hndlr = {path = "../emb_txt_hndlr"}
+emb_txt_hndlr = {path = "../emb_txt_hndlr"}
 
 [[bin]]
 name = "sail_stats"
