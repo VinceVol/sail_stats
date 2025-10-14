@@ -148,6 +148,7 @@ fn buf_time_now() -> [u8; 8] {
     let mut hr_buf = [0; 2];
     let mut min_buf = [0; 2];
     let mut sec_buf = [0; 2];
+    emb_txt_hndlr::numbers::BufTxt::from_u(clock_time.0) 
     num_to_buffer(clock_time.0 as f32, &mut hr_buf, 0);
     num_to_buffer(clock_time.1 as f32, &mut min_buf, 0);
     num_to_buffer(clock_time.2 as f32, &mut sec_buf, 0);
@@ -182,49 +183,4 @@ impl TimeSource for RTCWrapper {
             return Timestamp::from_calendar(2025, 7, 28, 0, 0, 0).unwrap();
         }
     }
-}
-
-//Quite the dance we've made to be able to lump f32 & f64 together and convert to utf8 buf
-pub fn num_to_buffer<T: Float + FromPrimitive + defmt::Format>(
-    mut num: T,
-    buf: &mut [u8],
-    decimal: u8,
-) {
-    //keep track of digits to know whether buffer was proper size
-    // -2 indicated adding a decimal
-    let buf_len = buf.len();
-    if (buf_len as u8) < decimal + 1 {
-        info!("The buffer provided in num_to_buffer fun is too small for num of decimal places");
-        return;
-    }
-    if decimal > 0 {
-        buf[buf_len - (decimal as usize) - 1] = '.' as u8;
-        //Move the ball to the end of the float 25.4 -> 254 so that 254 % 10 = 4 = buf[-1]
-        num = T::from_u8(10).unwrap().powi(decimal as i32) * num;
-    }
-
-    let mut int_num = T::to_f64(&num).unwrap() as u8; //we panick if we try to go direct to u8 ::to_u8
-
-    //I think in theory this won't crash for any real float
-    let mut i = buf_len - 1;
-    while i > 0 {
-        if buf[i] == '.' as u8 {
-            i -= 1;
-            continue;
-        }
-
-        //0x30 is super important otherwise the number shows up as blank lol
-        //hexadecimal conversion is 0x30 = 0
-        buf[i] = int_num % 10 + 0x30;
-        int_num /= 10;
-        i -= 1;
-    }
-    if int_num > 1 {
-        println!(
-            "Too small of a buffer was given for num_to_buffer fn for {} with decimal # {}",
-            num, decimal
-        );
-    }
-    //TODO need to write a TEST for this as well as adding some failsafes so that none of these
-    // unwraps screw us
 }

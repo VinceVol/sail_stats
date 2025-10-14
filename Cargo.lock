@@ -194,7 +194,6 @@ dependencies = [
 name = "emb_txt_hndlr"
 version = "0.1.0"
 dependencies = [
- "libc-print",
  "num-traits",
 ]
 
@@ -506,21 +505,6 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
-name = "libc"
-version = "0.2.177"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
-
-[[package]]
-name = "libc-print"
-version = "0.1.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a660208db49e35faf57b37484350f1a61072f2a5becf0592af6015d9ddd4b0"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "libm"
