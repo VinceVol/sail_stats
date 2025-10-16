@@ -6,6 +6,7 @@ use core::{fmt::Pointer, num};
 
 use cortex_m::iprintln;
 use defmt::{info, println};
+use emb_txt_hndlr::{BufError, BufTxt};
 use embassy_nrf::{
     Peri, bind_interrupts,
     peripherals::{P0_01, P0_13, P0_17, SPI2},
@@ -61,8 +62,8 @@ pub async fn init_save(
         //setting the refresh rate of all data collected written to micro_sd
         Timer::after_secs(1).await;
         if !MICRO_QUEU.is_empty() {
-            let mut empty_q: [(u8, [u8; BUFFER_LENGTH]); Q_SIZE] =
-                [((Q_SIZE as u8) + 1, [0; BUFFER_LENGTH]); Q_SIZE];
+            let mut empty_q: [(u8, BufTxt); Q_SIZE] =
+                [((Q_SIZE as u8) + 1, BufTxt::new(" ").unwrap()); Q_SIZE];
 
             //using current _q var thinking it prevents the q from changing size as you're
             //reading it. Maybe this isn't possible anyway?
@@ -76,7 +77,7 @@ pub async fn init_save(
             }
 
             //get the time
-            empty_q[Q_SIZE - 1] = (0, buf_time_now());
+            empty_q[Q_SIZE - 1] = (0, buf_time_now().unwrap());
 
             //sort by col
             empty_q.sort_unstable_by_key(|d| d.0);
@@ -93,7 +94,7 @@ pub async fn init_save(
                 //         col,
                 //         core::str::from_utf8(&data).unwrap()
                 //     );
-                if data == [0; BUFFER_LENGTH] {
+                if data == BufTxt::default() {
                     continue;
                 }
                 while col > act_col {
@@ -101,9 +102,9 @@ pub async fn init_save(
                     l_p += 1;
                     act_col += 1;
                 }
-                for c in data {
+                for c in data.characters {
                     //if c isnt 0 in buf u8
-                    if c != 0x30 {
+                    if c != ' ' as u8 {
                         line[l_p] = c;
                         l_p += 1;
                     }
@@ -120,8 +121,7 @@ pub async fn init_save(
 
 pub static BUFFER_LENGTH: usize = 8;
 const Q_SIZE: usize = 20;
-pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, [u8; BUFFER_LENGTH]), Q_SIZE> =
-    Channel::new();
+pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, BufTxt), Q_SIZE> = Channel::new();
 //we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
 //header values and columns TODO -> add macro for header names
@@ -141,26 +141,23 @@ impl RTCWrapper {
 }
 
 //Removed this from RTCWrapper since it only needs embassy time
-fn buf_time_now() -> [u8; 8] {
+fn buf_time_now() -> Result<BufTxt, BufError> {
+    //Grab time and clunky convert to u8 -- should probably generate a small crate so we can test
     let now = embassy_time::Instant::now().as_secs();
     let clock_time = sec_to_time(now);
-    println!("now: {}\nclk: {}", now, clock_time);
-    let mut hr_buf = [0; 2];
-    let mut min_buf = [0; 2];
-    let mut sec_buf = [0; 2];
-    emb_txt_hndlr::numbers::BufTxt::from_u(clock_time.0) 
-    num_to_buffer(clock_time.0 as f32, &mut hr_buf, 0);
-    num_to_buffer(clock_time.1 as f32, &mut min_buf, 0);
-    num_to_buffer(clock_time.2 as f32, &mut sec_buf, 0);
-    let mut full_time: [u8; 8] = [0, 0, ':' as u8, 0, 0, ':' as u8, 0, 0];
-    [full_time[0], full_time[1]] = hr_buf;
-    [full_time[2], full_time[3]] = min_buf;
-    [full_time[4], full_time[5]] = sec_buf;
-    println!(
-        "buf_time_now: Time: {}",
-        core::str::from_utf8(&full_time).unwrap()
+
+    //Initialized everything to buf txt
+    let hr = BufTxt::from_u(clock_time.0)?;
+    let min = BufTxt::from_u(clock_time.1)?;
+    let sec = BufTxt::from_u(clock_time.2)?;
+    let colon = BufTxt::new(":")?;
+
+    //clunky concat all together in one line -- could use a function for this in EmbTxt
+    let hr_min_sec = BufTxt::concat(
+        BufTxt::concat(BufTxt::concat(BufTxt::concat(hr, colon)?, min)?, colon)?,
+        sec,
     );
-    return full_time;
+    return hr_min_sec;
 }
 
 //need a shitty function to convert ticks from embassy_time to hour/min/sec it's a fair

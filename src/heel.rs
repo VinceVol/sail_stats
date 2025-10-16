@@ -5,6 +5,7 @@ use core::f32::consts::PI;
 use defmt::dbg;
 use defmt::info;
 use defmt::println;
+use emb_txt_hndlr::BufTxt;
 use embassy_nrf::{
     Peri, bind_interrupts,
     peripherals::{P0_08, P0_16, TWISPI0},
@@ -19,7 +20,6 @@ use static_cell::ConstStaticCell;
 
 use crate::micro_sd::BUFFER_LENGTH;
 use crate::micro_sd::MICRO_QUEU;
-use crate::micro_sd::num_to_buffer;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
@@ -72,10 +72,8 @@ pub async fn init_heel(
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
 
-            let mut roll_buf: [u8; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
-            num_to_buffer(roll, &mut roll_buf, 2);
-            let mut pitch_buf: [u8; BUFFER_LENGTH] = [0; BUFFER_LENGTH];
-            num_to_buffer(pitch, &mut pitch_buf, 2);
+            let roll_buf = BufTxt::from_f(roll as f64, 6).unwrap();
+            let pitch_buf = BufTxt::from_f(pitch as f64, 6).unwrap();
             // println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
 
             MICRO_QUEU.send((1, roll_buf)).await;
