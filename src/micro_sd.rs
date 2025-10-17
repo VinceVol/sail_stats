@@ -153,10 +153,7 @@ fn buf_time_now() -> Result<BufTxt, BufError> {
     let colon = BufTxt::new(":")?;
 
     //clunky concat all together in one line -- could use a function for this in EmbTxt
-    let hr_min_sec = BufTxt::concat(
-        BufTxt::concat(BufTxt::concat(BufTxt::concat(hr, colon)?, min)?, colon)?,
-        sec,
-    );
+    let hr_min_sec = BufTxt::concat_list(&[hr, colon, min, colon, sec]);
     return hr_min_sec;
 }
 
