@@ -23,11 +23,6 @@ use crate::micro_sd::MICRO_QUEU;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
-bind_interrupts!(
-    struct Irqs {
-        TWISPI0 => twim::InterruptHandler<TWISPI0>;
-    }
-);
 
 #[embassy_executor::task]
 pub async fn init_heel(
@@ -35,13 +30,6 @@ pub async fn init_heel(
     scl_p: Peri<'static, P0_08>,
     sda_p: Peri<'static, P0_16>,
 ) {
-    //Initializing I2C, will need to do this in main or elsewhere if we want to share
-    //the i2c bus
-    info!("Initializing accelorometer twi...");
-    let config = twim::Config::default();
-    static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
-    let twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
-
     //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
     let mut sensor = Lsm303agr::new_with_i2c(twi);
     sensor.init().unwrap();

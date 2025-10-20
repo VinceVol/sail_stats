@@ -8,22 +8,43 @@ mod micro_sd;
 use core::borrow::Borrow;
 
 use defmt::dbg;
+use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
+use static_cell::{ConstStaticCell, StaticCell};
 #[cfg(feature = "defmt")]
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use embassy_nrf::{
+    bind_interrupts,
     gpio::{AnyPin, Input, Level, Output, OutputDrive},
-    peripherals::P0_13,
+    interrupt::Interrupt::I2S,
+    peripherals::{P0_13, TWISPI0},
+    twim::{self, Twim},
 };
 use embassy_time::Timer;
 use fmt::info;
 
+//I2C init for all
+type TwiBus = Mutex<NoopRawMutex, Twim<'static, twim::Config>>;
+bind_interrupts!(
+    struct Irqs {
+        TWISPI0 => twim::InterruptHandler<TWISPI0>;
+    }
+);
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_nrf::init(Default::default());
+
+    //Need to initialize i2c in main loop so that multiple peripherals can use it
+    let config = twim::Config::default();
+    static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
+    let twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
+    static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
+    let twi_bus = TWI_BUS.init(Mutex::new(twi));
+
     let _ = spawner.spawn(button(p.P0_14.into(), ButtonSide::A));
     let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
     let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
