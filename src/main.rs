@@ -41,7 +41,7 @@ async fn main(spawner: Spawner) {
     //Need to initialize i2c in main loop so that multiple peripherals can use it
     let config = twim::Config::default();
     static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
-    let twi = twim::Twim::new(twi_p, Irqs, sda_p, scl_p, config, RAM_BUFFER.take());
+    let twi = twim::Twim::new(p.TWISPI0, Irqs, p.P0_16, p.P0_16, config, RAM_BUFFER.take());
     static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
 
