@@ -39,14 +39,12 @@ async fn main(spawner: Spawner) {
     let p = embassy_nrf::init(Default::default());
 
     //Need to initialize i2c in main loop so that multiple peripherals can use it
+    // DROP A LINK TO EXAMPLE SINCE GENTEX BLOCKS EVERYTHING!
     let config = twim::Config::default();
     static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
     let twi = twim::Twim::new(p.TWISPI0, Irqs, p.P0_16, p.P0_08, config, RAM_BUFFER.take());
     static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
-
-    let _ = spawner.spawn(button(p.P0_14.into(), ButtonSide::A));
-    let _ = spawner.spawn(button(p.P0_23.into(), ButtonSide::B));
     let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
 
     //I think we may need to preinitialized micro sd card
@@ -54,28 +52,4 @@ async fn main(spawner: Spawner) {
     let _ = spawner.spawn(micro_sd::init_save(
         p.SPI2, p.P0_01, p.P0_13, p.P0_17, cs_pin,
     ));
-}
-
-//Putting this as a gut check to make sure the board is working and interacting
-enum ButtonSide {
-    A,
-    B,
-}
-
-#[embassy_executor::task(pool_size = 2)]
-async fn button(pin: embassy_nrf::Peri<'static, AnyPin>, button_side: ButtonSide) {
-    let mut button = Input::new(pin, embassy_nrf::gpio::Pull::None);
-    loop {
-        button.wait_for_low().await;
-        match button_side {
-            ButtonSide::A => {
-                info!("you've pressed button a!");
-            }
-            ButtonSide::B => {
-                info!("you've pressed button b!");
-            }
-        }
-        embassy_time::Timer::after_millis(150).await;
-        button.wait_for_high().await;
-    }
 }
