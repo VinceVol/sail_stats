@@ -25,11 +25,7 @@ use crate::micro_sd::MICRO_QUEU;
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
 
 #[embassy_executor::task]
-pub async fn init_heel(
-    twi_p: Peri<'static, TWISPI0>,
-    scl_p: Peri<'static, P0_08>,
-    sda_p: Peri<'static, P0_16>,
-) {
+pub async fn init_heel(twi: &'static crate::TwiBus) {
     //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
     let mut sensor = Lsm303agr::new_with_i2c(twi);
     sensor.init().unwrap();

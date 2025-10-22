@@ -27,7 +27,7 @@ use embassy_time::Timer;
 use fmt::info;
 
 //I2C init for all
-type TwiBus = Mutex<NoopRawMutex, Twim<'static, twim::Config>>;
+pub type TwiBus = Mutex<NoopRawMutex, Twim<'static, TWISPI0>>;
 bind_interrupts!(
     struct Irqs {
         TWISPI0 => twim::InterruptHandler<TWISPI0>;
@@ -45,7 +45,7 @@ async fn main(spawner: Spawner) {
     let twi = twim::Twim::new(p.TWISPI0, Irqs, p.P0_16, p.P0_08, config, RAM_BUFFER.take());
     static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
-    let res = spawner.spawn(heel::init_heel(p.TWISPI0, p.P0_08, p.P0_16));
+    let res = spawner.spawn(heel::init_heel(twi_bus));
 
     //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);
