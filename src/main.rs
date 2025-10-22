@@ -29,7 +29,7 @@ use fmt::info;
 //I2C init for all
 pub type TwiBus = Mutex<NoopRawMutex, Twim<'static, TWISPI0>>;
 bind_interrupts!(
-    struct Irqs {
+    pub struct Irqs {
         TWISPI0 => twim::InterruptHandler<TWISPI0>;
     }
 );
@@ -39,7 +39,9 @@ async fn main(spawner: Spawner) {
     let p = embassy_nrf::init(Default::default());
 
     //Need to initialize i2c in main loop so that multiple peripherals can use it
-    // DROP A LINK TO EXAMPLE SINCE GENTEX BLOCKS EVERYTHING!
+    //Using the example below to try and get i2c working globally
+    //https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/shared_bus.rs
+
     let config = twim::Config::default();
     static RAM_BUFFER: static_cell::ConstStaticCell<[u8; 16]> = ConstStaticCell::new([0; 16]);
     let twi = twim::Twim::new(p.TWISPI0, Irqs, p.P0_16, p.P0_08, config, RAM_BUFFER.take());

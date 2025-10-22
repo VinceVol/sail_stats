@@ -6,6 +6,8 @@ use defmt::dbg;
 use defmt::info;
 use defmt::println;
 use emb_txt_hndlr::BufTxt;
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
+use embassy_nrf::interrupt::Interrupt::TWISPI0;
 use embassy_nrf::{
     Peri, bind_interrupts,
     peripherals::{P0_08, P0_16, TWISPI0},
@@ -18,6 +20,7 @@ use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
 use static_cell::ConstStaticCell;
 
+use crate::Irqs;
 use crate::micro_sd::BUFFER_LENGTH;
 use crate::micro_sd::MICRO_QUEU;
 
@@ -25,9 +28,12 @@ use crate::micro_sd::MICRO_QUEU;
 //if we have problems with the accelerometer I'll swithc this to TWISPI1 to see if it makes a difference
 
 #[embassy_executor::task]
-pub async fn init_heel(twi: &'static crate::TwiBus) {
+pub async fn init_heel(twi_bus: &'static crate::TwiBus) {
     //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
+
+    let twi = I2cDevice::new(twi_bus);
     let mut sensor = Lsm303agr::new_with_i2c(twi);
+    sensor.destroy()
     sensor.init().unwrap();
     sensor
         .set_accel_mode_and_odr(
