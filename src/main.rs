@@ -5,9 +5,6 @@ mod fmt;
 mod heel;
 mod micro_sd;
 
-use core::borrow::Borrow;
-
-use defmt::dbg;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 #[cfg(not(feature = "defmt"))]
 use panic_halt as _;
@@ -18,13 +15,10 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_nrf::{
     bind_interrupts,
-    gpio::{AnyPin, Input, Level, Output, OutputDrive},
-    interrupt::Interrupt::I2S,
-    peripherals::{P0_13, TWISPI0},
+    gpio::{Level, Output, OutputDrive},
+    peripherals::TWISPI0,
     twim::{self, Twim},
 };
-use embassy_time::Timer;
-use fmt::info;
 
 //I2C init for all
 pub type TwiBus = Mutex<NoopRawMutex, Twim<'static, TWISPI0>>;
@@ -47,7 +41,7 @@ async fn main(spawner: Spawner) {
     let twi = twim::Twim::new(p.TWISPI0, Irqs, p.P0_16, p.P0_08, config, RAM_BUFFER.take());
     static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
-    let res = spawner.spawn(heel::init_heel(twi_bus));
+    let _res = spawner.spawn(heel::init_heel(twi_bus));
 
     //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);

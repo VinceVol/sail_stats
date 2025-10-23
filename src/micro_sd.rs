@@ -2,10 +2,7 @@
 //storage for the user to then take to their computer and crunch the
 //results
 
-use core::{fmt::Pointer, num};
-
-use cortex_m::iprintln;
-use defmt::{info, println};
+use defmt::info;
 use emb_txt_hndlr::{BufError, BufTxt};
 use embassy_nrf::{
     Peri, bind_interrupts,
@@ -13,11 +10,8 @@ use embassy_nrf::{
     spim,
 };
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
-use embassy_time::{Delay, Instant, Timer};
-use embedded_sdmmc::{
-    Error, Mode, SdCard, SdCardError, TimeSource, Timestamp, VolumeIdx, VolumeManager,
-};
-use num_traits::{Float, FromPrimitive};
+use embassy_time::{Delay, Timer};
+use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 
 //Just like I2C not really sure what the difference between spi2 and spi3 is
 //and when to use one or the other

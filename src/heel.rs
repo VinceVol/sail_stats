@@ -1,27 +1,14 @@
-#![no_std]
-
 use core::f32::consts::PI;
 
-use defmt::dbg;
 use defmt::info;
-use defmt::println;
 use emb_txt_hndlr::BufTxt;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
-use embassy_nrf::interrupt::Interrupt::TWISPI0;
-use embassy_nrf::{
-    Peri, bind_interrupts,
-    peripherals::{P0_08, P0_16, TWISPI0},
-    twim,
-};
 
 use embassy_time::Delay;
 use embassy_time::Timer;
 use lsm303agr::AccelOutputDataRate;
 use lsm303agr::Lsm303agr;
-use static_cell::ConstStaticCell;
 
-use crate::Irqs;
-use crate::micro_sd::BUFFER_LENGTH;
 use crate::micro_sd::MICRO_QUEU;
 
 //Having a pretty hard time determining the difference between TWISPI0 and TWISPI1, to the best of my knowledge they are both peripherals associated with using TWI (I2C)
@@ -31,25 +18,25 @@ use crate::micro_sd::MICRO_QUEU;
 pub async fn init_heel(twi_bus: &'static crate::TwiBus) {
     //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
 
-    let twi = I2cDevice::new(twi_bus);
-    let mut sensor = Lsm303agr::new_with_i2c(twi);
-    sensor.destroy()
-    sensor.init().unwrap();
+    let twi_d = I2cDevice::new(twi_bus);
+    let mut sensor = Lsm303agr::new_with_i2c(twi_d);
+    sensor.init().await.unwrap();
     sensor
         .set_accel_mode_and_odr(
             &mut Delay,
             lsm303agr::AccelMode::LowPower,
             AccelOutputDataRate::Hz10,
         )
+        .await
         .unwrap();
 
     info!("Starting to pull tilt data!");
     loop {
         Timer::after_millis(1000).await;
-        let mut roll: f32 = 0.0;
-        let mut pitch: f32 = 0.0;
-        if sensor.accel_status().is_ok_and(|s| s.xyz_new_data()) {
-            let data = sensor.acceleration().unwrap();
+        let roll: f32;
+        let pitch: f32;
+        if sensor.accel_status().await.is_ok_and(|s| s.xyz_new_data()) {
+            let data = sensor.acceleration().await.unwrap();
             let x = data.x_mg() as f32;
             let y = data.y_mg() as f32;
             let z = data.z_mg() as f32;
@@ -62,6 +49,46 @@ pub async fn init_heel(twi_bus: &'static crate::TwiBus) {
             roll = 180f32 * libm::atan2f(y, libm::sqrtf(libm::powf(x, 2f32) + libm::powf(z, 2f32)))
                 / PI;
 
+            let roll_buf = BufTxt::from_f(roll as f64, 6).unwrap();
+            let pitch_buf = BufTxt::from_f(pitch as f64, 6).unwrap();
+            // println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
+
+            MICRO_QUEU.send((1, roll_buf)).await;
+            MICRO_QUEU.send((2, pitch_buf)).await;
+            // MICRO_QUEU.send((1, *b"ROLLBUFF")).await;
+            // MICRO_QUEU.send((2, *b"PITCHBUF")).await;
+        }
+    }
+}
+
+#[embassy_executor::task]
+pub async fn init_mag(twi_bus: &'static crate::TwiBus) {
+    //Following https://github.com/eldruin/lsm303agr-rs/blob/HEAD/examples/microbit-v2.rs this example for implementing accelorometer driver
+
+    let twi_d = I2cDevice::new(twi_bus);
+    let mut sensor = Lsm303agr::new_with_i2c(twi_d);
+    sensor.init().await.unwrap();
+    sensor
+        .set_accel_mode_and_odr(
+            &mut Delay,
+            lsm303agr::AccelMode::LowPower,
+            AccelOutputDataRate::Hz10,
+        )
+        .await
+        .unwrap();
+
+    info!("Starting to pull Compass data!");
+    loop {
+        Timer::after_millis(1000).await; //refresh rate for sensor
+        // let roll: f32;
+        // let pitch: f32;
+        if sensor.mag_status().await.is_ok_and(|s| s.xyz_new_data()) {
+            let data = sensor.magnetic_field().await.unwrap();
+            let x = data.x_nt() as f32;
+            let y = data.y_nt() as f32;
+            let z = data.z_nt() as f32;
+
+            todo!(); //stopped here -- still need to calculate which direction the sensor is pointing in
             let roll_buf = BufTxt::from_f(roll as f64, 6).unwrap();
             let pitch_buf = BufTxt::from_f(pitch as f64, 6).unwrap();
             // println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);

@@ -532,6 +532,7 @@ checksum = "f24b486ceef047c043c19c24669379f1049269927430c09f0444aac4685d2c2f"
 dependencies = [
  "bitflags 2.10.0",
  "embedded-hal 1.0.0",
+ "embedded-hal-async",
  "maybe-async-cfg",
  "nb 1.1.0",
 ]
