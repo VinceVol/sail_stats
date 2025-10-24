@@ -1,6 +1,8 @@
 use core::f32::consts::PI;
 
+use defmt::dbg;
 use defmt::info;
+use defmt::println;
 use emb_txt_hndlr::BufTxt;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 
@@ -69,10 +71,10 @@ pub async fn init_mag(twi_bus: &'static crate::TwiBus) {
     let mut sensor = Lsm303agr::new_with_i2c(twi_d);
     sensor.init().await.unwrap();
     sensor
-        .set_accel_mode_and_odr(
+        .set_mag_mode_and_odr(
             &mut Delay,
-            lsm303agr::AccelMode::LowPower,
-            AccelOutputDataRate::Hz10,
+            lsm303agr::MagMode::LowPower,
+            lsm303agr::MagOutputDataRate::Hz100,
         )
         .await
         .unwrap();
@@ -80,21 +82,17 @@ pub async fn init_mag(twi_bus: &'static crate::TwiBus) {
     info!("Starting to pull Compass data!");
     loop {
         Timer::after_millis(1000).await; //refresh rate for sensor
-        // let roll: f32;
-        // let pitch: f32;
-        if sensor.mag_status().await.is_ok_and(|s| s.xyz_new_data()) {
+        if sensor.mag_status().await.is_ok() {
             let data = sensor.magnetic_field().await.unwrap();
-            let x = data.x_nt() as f32;
-            let y = data.y_nt() as f32;
-            let z = data.z_nt() as f32;
+            let x = data.x_nt() as f64;
+            let y = data.y_nt() as f64;
+            // let z = data.z_nt() as f64;
 
-            todo!(); //stopped here -- still need to calculate which direction the sensor is pointing in
-            let roll_buf = BufTxt::from_f(roll as f64, 6).unwrap();
-            let pitch_buf = BufTxt::from_f(pitch as f64, 6).unwrap();
-            // println!("Roll : {} \nPitch {}", roll_buf, pitch_buf);
+            let heading = libm::atan2(y, x) * 180.0 / 3.1415;
+            let heading_buf = BufTxt::from_f(heading, 6).unwrap();
+            println!("heading : {}", heading);
 
-            MICRO_QUEU.send((1, roll_buf)).await;
-            MICRO_QUEU.send((2, pitch_buf)).await;
+            MICRO_QUEU.send((3, heading_buf)).await;
             // MICRO_QUEU.send((1, *b"ROLLBUFF")).await;
             // MICRO_QUEU.send((2, *b"PITCHBUF")).await;
         }

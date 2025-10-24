@@ -42,6 +42,7 @@ async fn main(spawner: Spawner) {
     static TWI_BUS: StaticCell<TwiBus> = StaticCell::new();
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
     let _res = spawner.spawn(heel::init_heel(twi_bus));
+    let _res = spawner.spawn(heel::init_mag(twi_bus));
 
     //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);
