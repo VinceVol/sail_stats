@@ -1,6 +1,5 @@
 use core::f32::consts::PI;
 
-use defmt::dbg;
 use defmt::info;
 use defmt::println;
 use emb_txt_hndlr::BufTxt;

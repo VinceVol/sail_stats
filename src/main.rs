@@ -2,6 +2,7 @@
 #![no_main]
 
 mod fmt;
+mod gps;
 mod heel;
 mod micro_sd;
 
