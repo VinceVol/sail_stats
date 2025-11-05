@@ -30,8 +30,11 @@ pub async fn init_gps(
 
     //dump the UARTE info into a buffer -- and zap/parse that info to sd card
     loop {
-        let mut buffer: [u8; GPS_BUF_SIZE] = [' ' as u8; 64];
-        let _ = uart.read(&mut buffer).await;
+        let mut buffer: [u8; GPS_BUF_SIZE] = [' ' as u8; GPS_BUF_SIZE];
+        println!("We made it here");
+        let res = uart.read(&mut buffer).await;
+
+        println!("{}", res);
         println!("{}", core::str::from_utf8(&buffer).unwrap());
     }
 }

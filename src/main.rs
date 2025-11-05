@@ -44,6 +44,7 @@ async fn main(spawner: Spawner) {
     let twi_bus = TWI_BUS.init(Mutex::new(twi));
     let _res = spawner.spawn(heel::init_heel(twi_bus));
     let _res = spawner.spawn(heel::init_mag(twi_bus));
+    let _res = spawner.spawn(gps::init_gps(p.P0_12.into(), p.P0_11.into(), p.UARTE0));
 
     //I think we may need to preinitialized micro sd card
     let cs_pin = Output::new(p.P1_02, Level::High, OutputDrive::Standard);

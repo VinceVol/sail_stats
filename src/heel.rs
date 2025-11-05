@@ -89,7 +89,6 @@ pub async fn init_mag(twi_bus: &'static crate::TwiBus) {
 
             let heading = libm::atan2(y, x) * 180.0 / 3.1415;
             let heading_buf = BufTxt::from_f(heading, 6).unwrap();
-            println!("heading : {}", heading);
 
             MICRO_QUEU.send((3, heading_buf)).await;
             // MICRO_QUEU.send((1, *b"ROLLBUFF")).await;
