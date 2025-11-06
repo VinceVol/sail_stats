@@ -1,5 +1,7 @@
 //File meant for uarte communication with arduino GPS Module
 
+use core::f32;
+
 use defmt::println;
 use embassy_nrf::{
     Peri, bind_interrupts,
@@ -9,13 +11,19 @@ use embassy_nrf::{
 };
 
 //baud rate for arduino gps is defaulted to 9600
-struct Gps {}
+//GPGGA,113727.00,4303.16727,N,08612.65632,W,1,07,1.43,197.6,M,-34.5,M,,*60
+struct Gps {
+    deg_north: f32,
+    deg_west: f32,
+    time: f32,
+    date: f32,
+}
 
 bind_interrupts!(struct Irua {
     UARTE0 => uarte::InterruptHandler<UARTE0>;
 });
 
-const GPS_BUF_SIZE: usize = 64; //starting with this till issues arise
+const GPS_BUF_SIZE: usize = 256; //starting with this till issues arise
 
 #[embassy_executor::task]
 pub async fn init_gps(
@@ -30,11 +38,11 @@ pub async fn init_gps(
 
     //dump the UARTE info into a buffer -- and zap/parse that info to sd card
     loop {
-        let mut buffer: [u8; GPS_BUF_SIZE] = [' ' as u8; GPS_BUF_SIZE];
-        println!("We made it here");
+        let mut buffer: [u8; GPS_BUF_SIZE] = [0; GPS_BUF_SIZE];
         let res = uart.read(&mut buffer).await;
 
-        println!("{}", res);
-        println!("{}", core::str::from_utf8(&buffer).unwrap());
+        if buffer != [0; GPS_BUF_SIZE] {
+            println!("{}", core::str::from_utf8(&buffer).unwrap());
+        }
     }
 }
