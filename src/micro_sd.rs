@@ -57,7 +57,7 @@ pub async fn init_save(
         Timer::after_secs(1).await;
         if !MICRO_QUEU.is_empty() {
             let mut empty_q: [(u8, BufTxt); Q_SIZE] =
-                [((Q_SIZE as u8) + 1, BufTxt::new(" ").unwrap()); Q_SIZE];
+                [((Q_SIZE as u8) + 1, BufTxt::from_str(" ").unwrap()); Q_SIZE];
 
             //using current _q var thinking it prevents the q from changing size as you're
             //reading it. Maybe this isn't possible anyway?
@@ -144,7 +144,7 @@ fn buf_time_now() -> Result<BufTxt, BufError> {
     let hr = BufTxt::from_u(clock_time.0)?;
     let min = BufTxt::from_u(clock_time.1)?;
     let sec = BufTxt::from_u(clock_time.2)?;
-    let colon = BufTxt::new(":")?;
+    let colon = BufTxt::from_str(":")?;
 
     //clunky concat all together in one line -- could use a function for this in EmbTxt
     let hr_min_sec = BufTxt::concat_list(&[hr, colon, min, colon, sec]);

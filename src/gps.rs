@@ -3,6 +3,7 @@
 use core::f32;
 
 use defmt::println;
+use emb_txt_hndlr::BufTxt;
 use embassy_nrf::{
     Peri, bind_interrupts,
     gpio::AnyPin,
@@ -39,9 +40,18 @@ pub async fn init_gps(
     //dump the UARTE info into a buffer -- and zap/parse that info to sd card
     loop {
         let mut buffer: [u8; GPS_BUF_SIZE] = [0; GPS_BUF_SIZE];
-        let res = uart.read(&mut buffer).await;
+        let _res = uart.read(&mut buffer).await;
 
         if buffer != [0; GPS_BUF_SIZE] {
+            let data_chunk = BufTxt::from_u8(&buffer).unwrap();
+            let mut chunks: [BufTxt; 15] = [BufTxt::default(); 15];
+            let _ = data_chunk.split('\n' as u8, &mut chunks);
+            for chunk in chunks {
+                println!(
+                    "First Bit: {}",
+                    core::str::from_utf8(&chunk.characters[0..5]).unwrap()
+                );
+            }
             println!("{}", core::str::from_utf8(&buffer).unwrap());
         }
     }
