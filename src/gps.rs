@@ -1,7 +1,5 @@
 //File meant for uarte communication with arduino GPS Module
 
-use core::f32;
-
 use defmt::println;
 use emb_txt_hndlr::{BUF_LENGTH, BufTxt};
 use embassy_nrf::{
@@ -11,11 +9,13 @@ use embassy_nrf::{
     uarte::{self, Baudrate, Uarte},
 };
 
+use crate::micro_sd::MICRO_QUEU;
+
 //baud rate for arduino gps is defaulted to 9600
 //GPGGA,113727.00,4303.16727,N,08612.65632,W,1,07,1.43,197.6,M,-34.5,M,,*60
 struct Gps {
-    deg_north: BufTxt,
-    deg_west: BufTxt,
+    deg_lat: BufTxt,
+    deg_long: BufTxt,
     date_time: BufTxt, //utc time
     altitude: BufTxt,
     altitude_units: BufTxt,
@@ -29,14 +29,20 @@ const GPS_BUF_SIZE: usize = 256; //starting with this till issues arise
 
 fn parse_gpgga(gpgga: [BufTxt; 15]) -> Option<Gps> {
     let utc_time = gpgga[1];
-    let lat_raw = core::str::from_utf8(&gpgga[2].characters)
+    println!(
+        "Lat_Raw{}",
+        core::str::from_utf8(&gpgga[2].characters).unwrap()
+    );
+    let lat_raw: f64 = core::str::from_utf8(&gpgga[2].characters)
         .unwrap()
         .parse()
-        .ok()?;
-    let long_raw = core::str::from_utf8(&gpgga[4].characters)
+        .unwrap();
+    // .ok()?;
+    let long_raw: f64 = core::str::from_utf8(&gpgga[4].characters)
         .unwrap()
         .parse()
-        .ok()?;
+        .unwrap();
+    // .ok()?;
     let altitude = gpgga[9];
     let altitude_units = gpgga[10];
 
@@ -45,7 +51,7 @@ fn parse_gpgga(gpgga: [BufTxt; 15]) -> Option<Gps> {
     let lat_minutes = lat_raw % 100f64;
     let mut latitude = lat_degrees + (lat_minutes / 60f64);
     if gpgga[3] == BufTxt::from_str("S").unwrap() {
-        latitude *= -1;
+        latitude *= -1f64;
     }
 
     //Convert Longitude to decimal degrees
@@ -53,27 +59,15 @@ fn parse_gpgga(gpgga: [BufTxt; 15]) -> Option<Gps> {
     let long_minutes = long_raw % 100f64;
     let mut longitude = long_degrees + (long_minutes / 60f64);
     if gpgga[3] == BufTxt::from_str("W").unwrap() {
-        longitude *= -1;
+        longitude *= -1f64;
     }
-    return Some(());
-
-    // latitude_hemisphere = fields[3]
-    // longitude_hemisphere = fields[5]
-
-    // # Convert latitude to decimal degrees
-    // lat_degrees = int(latitude_raw / 100)
-    // lat_minutes = latitude_raw % 100
-    // latitude = lat_degrees + (lat_minutes / 60)
-    // if latitude_hemisphere == 'S':
-    //     latitude *= -1
-
-    // # Convert longitude to decimal degrees
-    // lon_degrees = int(longitude_raw / 100)
-    // lon_minutes = longitude_raw % 100
-    // longitude = lon_degrees + (lon_minutes / 60)
-    // if longitude_hemisphere == 'W':
-    //     longitude *= -1
-    //
+    return Some(Gps {
+        deg_lat: BufTxt::from_f(latitude, 7).ok()?,
+        deg_long: BufTxt::from_f(longitude, 7).ok()?,
+        date_time: utc_time,
+        altitude,
+        altitude_units,
+    });
 }
 
 #[embassy_executor::task]
@@ -103,15 +97,12 @@ pub async fn init_gps(
                     == ['G' as u8, 'P' as u8, 'G' as u8, 'G' as u8, 'A' as u8]
                     && split_chunk[14] != BufTxt::default()
                 {
-                    for i in 0..15 {
-                        println!(
-                            "[{}]: {}",
-                            i,
-                            core::str::from_utf8(
-                                &split_chunk[i].characters[BUF_LENGTH - 5..BUF_LENGTH]
-                            )
-                            .unwrap()
-                        );
+                    if let Some(gps_info) = parse_gpgga(split_chunk) {
+                        println!("Successfully ran gps_info");
+                        MICRO_QUEU.send((4, gps_info.deg_lat)).await;
+                        MICRO_QUEU.send((5, gps_info.deg_long)).await;
+                        MICRO_QUEU.send((6, gps_info.altitude)).await;
+                        MICRO_QUEU.send((7, gps_info.altitude_units)).await;
                     }
                 }
             }

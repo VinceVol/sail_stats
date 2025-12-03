@@ -119,7 +119,16 @@ pub static MICRO_QUEU: Channel<CriticalSectionRawMutex, (u8, BufTxt), Q_SIZE> = 
 //we don't have hashmaps in a no_std environment so it's easier to sidestep this and hardcode in the
 
 //header values and columns TODO -> add macro for header names
-const CSV_HEADERS: [&[u8; 7]; 4] = [b"Time   ", b"Roll   ", b"Pitch  ", b"Heading"];
+const CSV_HEADERS: [&[u8; 9]; 8] = [
+    b"Time     ",
+    b"Roll     ",
+    b"Pitch    ",
+    b"Heading  ",
+    b"Latitude ",
+    b"Longitude",
+    b"Altitude ",
+    b"Alt Units",
+];
 //Not sure what to contain within the struct given that the methods surrounding this wrapper
 // are initialized in main || using var functional to call out whether the embassy time crate
 // is currently functioning
