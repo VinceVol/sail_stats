@@ -71,12 +71,12 @@ pub async fn init_save(
             }
 
             //get the time
-            empty_q[Q_SIZE - 1] = (0, buf_time_now().unwrap());
+            // empty_q[Q_SIZE - 1] = (0, buf_time_now().unwrap());
 
             //sort by col
             empty_q.sort_unstable_by_key(|d| d.0);
 
-            //150 marking the maximum length of each line? not sure what this really needs to be
+            //10000 marking the maximum length of each line? not sure what this really needs to be
             let mut line: [u8; 10000] = [0; 10000];
             let mut l_p = 1; //index within line
             let mut act_col = 0; //if data is missing we need to add a ghost col -- this keeps track

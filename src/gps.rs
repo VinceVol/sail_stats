@@ -84,6 +84,7 @@ pub async fn init_gps(
                 if let Some(identifier) = split_chunk[0].to_str() {
                     if identifier == "$GPGGA" && split_chunk[14] != BufTxt::default() {
                         if let Some(gps_info) = parse_gpgga(split_chunk) {
+                            MICRO_QUEU.send((0, gps_info.date_time)).await;
                             MICRO_QUEU.send((4, gps_info.deg_lat)).await;
                             MICRO_QUEU.send((5, gps_info.deg_long)).await;
                             MICRO_QUEU.send((6, gps_info.altitude)).await;
