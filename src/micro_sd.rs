@@ -3,6 +3,7 @@
 //results
 
 use defmt::info;
+use defmt::println;
 use emb_txt_hndlr::{BufError, BufTxt};
 use embassy_nrf::{
     Peri, bind_interrupts,
@@ -70,9 +71,6 @@ pub async fn init_save(
                 }
             }
 
-            //get the time
-            // empty_q[Q_SIZE - 1] = (0, buf_time_now().unwrap());
-
             //sort by col
             empty_q.sort_unstable_by_key(|d| d.0);
 
@@ -83,11 +81,7 @@ pub async fn init_save(
 
             // info!("Start Read!");
             for (col, data) in empty_q {
-                //     println!(
-                //         "col: {} \nData: {}",
-                //         col,
-                //         core::str::from_utf8(&data).unwrap()
-                //     );
+                println!("col: {} \nData: {}", col, data.to_str().unwrap(),);
                 if data == BufTxt::default() {
                     continue;
                 }

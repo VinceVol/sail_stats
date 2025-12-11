@@ -28,7 +28,16 @@ bind_interrupts!(struct Irua {
 const GPS_BUF_SIZE: usize = 256; //starting with this till issues arise
 
 fn parse_gpgga(gpgga: [BufTxt; 15]) -> Option<Gps> {
-    let utc_time = gpgga[1];
+    let utc_t_r = gpgga[1].to_str()?;
+    let utc_time = BufTxt::concat_list(&[
+        BufTxt::from_str(&utc_t_r[0..2]).ok()?,
+        BufTxt::from_str(":").unwrap(),
+        BufTxt::from_str(&utc_t_r[2..4]).ok()?,
+        BufTxt::from_str(":").unwrap(),
+        BufTxt::from_str(&utc_t_r[4..6]).ok()?,
+    ])
+    .ok()?;
+
     let lat_raw: f64 = gpgga[2].to_str()?.parse().ok()?;
     let long_raw: f64 = gpgga[4].to_str()?.parse().ok()?;
     let altitude = gpgga[9];
