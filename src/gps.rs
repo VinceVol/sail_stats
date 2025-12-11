@@ -29,20 +29,8 @@ const GPS_BUF_SIZE: usize = 256; //starting with this till issues arise
 
 fn parse_gpgga(gpgga: [BufTxt; 15]) -> Option<Gps> {
     let utc_time = gpgga[1];
-    println!(
-        "Lat_Raw{}",
-        core::str::from_utf8(&gpgga[2].characters).unwrap()
-    );
-    let lat_raw: f64 = core::str::from_utf8(&gpgga[2].characters)
-        .unwrap()
-        .parse()
-        .unwrap();
-    // .ok()?;
-    let long_raw: f64 = core::str::from_utf8(&gpgga[4].characters)
-        .unwrap()
-        .parse()
-        .unwrap();
-    // .ok()?;
+    let lat_raw: f64 = gpgga[2].to_str()?.parse().ok()?;
+    let long_raw: f64 = gpgga[4].to_str()?.parse().ok()?;
     let altitude = gpgga[9];
     let altitude_units = gpgga[10];
 
@@ -93,16 +81,14 @@ pub async fn init_gps(
             for chunk in chunks {
                 let mut split_chunk = [BufTxt::default(); 15];
                 let _ = chunk.split(',' as u8, &mut split_chunk);
-                if split_chunk[0].characters[BUF_LENGTH - 5..BUF_LENGTH]
-                    == ['G' as u8, 'P' as u8, 'G' as u8, 'G' as u8, 'A' as u8]
-                    && split_chunk[14] != BufTxt::default()
-                {
-                    if let Some(gps_info) = parse_gpgga(split_chunk) {
-                        println!("Successfully ran gps_info");
-                        MICRO_QUEU.send((4, gps_info.deg_lat)).await;
-                        MICRO_QUEU.send((5, gps_info.deg_long)).await;
-                        MICRO_QUEU.send((6, gps_info.altitude)).await;
-                        MICRO_QUEU.send((7, gps_info.altitude_units)).await;
+                if let Some(identifier) = split_chunk[0].to_str() {
+                    if identifier == "$GPGGA" && split_chunk[14] != BufTxt::default() {
+                        if let Some(gps_info) = parse_gpgga(split_chunk) {
+                            MICRO_QUEU.send((4, gps_info.deg_lat)).await;
+                            MICRO_QUEU.send((5, gps_info.deg_long)).await;
+                            MICRO_QUEU.send((6, gps_info.altitude)).await;
+                            MICRO_QUEU.send((7, gps_info.altitude_units)).await;
+                        }
                     }
                 }
             }
